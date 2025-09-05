@@ -1,0 +1,49 @@
+name: ArgoCD Sync
+on:
+  push:
+    branches: [develop, main, 'release/*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  sync-argocd:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      
+    - name: Setup ArgoCD CLI
+      run: |
+        curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+        sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+        rm argocd-linux-amd64
+        
+    - name: Login to ArgoCD
+      run: |
+        argocd login ${{ secrets.ARGOCD_SERVER }} \
+          --username ${{ secrets.ARGOCD_USERNAME }} \
+          --password ${{ secrets.ARGOCD_PASSWORD }} \
+          --insecure
+          
+    - name: Sync Application
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+          echo "Syncing development environment..."
+          argocd app sync queue-system-dev
+        elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "Syncing production environment..."
+          argocd app sync queue-system-prod
+        elif [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
+          echo "Syncing staging environment..."
+          argocd app sync queue-system-staging
+        fi
+        
+    - name: Wait for Sync
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+          argocd app wait queue-system-dev --timeout 300
+        elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          argocd app wait queue-system-prod --timeout 300
+        elif [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
+          argocd app wait queue-system-staging --timeout 300
+        fi

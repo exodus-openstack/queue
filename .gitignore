@@ -1,0 +1,60 @@
+# 각 프로젝트 폴더 제외
+queue-backend/
+queue-login/
+queue-portal/
+queue-infra/
+
+# IDE 및 에디터 파일
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS 생성 파일
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 로그 파일
+*.log
+logs/
+
+# 임시 파일
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# 환경 설정 파일 (민감한 정보 포함)
+.env
+.env.local
+.env.production
+.env.staging
+
+# 빌드 결과물
+build/
+dist/
+target/
+out/
+
+# 의존성 폴더
+node_modules/
+vendor/
+
+# 캐시 폴더
+.cache/
+.parcel-cache/
+
+# 테스트 결과
+coverage/
+.nyc_output/
+
+# 기타
+*.pid
+*.seed
+*.pid.lock
