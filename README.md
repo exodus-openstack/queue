@@ -15,13 +15,13 @@
 ## 🏗️ 프로젝트 구조
 
 ### 프로젝트별 역할
-- **queue-portal**: 사용자 인터페이스 (Vue.js/React.js)
+- **queue-portal**: 사용자 인터페이스 (React.js)
 - **queue-backend**: 비즈니스 로직 및 큐 관리 (Java Spring Boot)
 - **queue-login**: 인증 및 사용자 관리 (Java Spring Boot)
 - **queue-infra**: 인프라 관리 및 배포 (Kubernetes, Helm)
 
 ### 기술 스택
-- **Frontend**: Vue.js 3.x, TypeScript, Element Plus
+- **Frontend**: React.js 18.x, TypeScript, Tailwind CSS, Headless UI
 - **Backend**: Java 17, Spring Boot 3.x, Spring Security
 - **Database**: MariaDB 10.11, Redis 7.x
 - **Infrastructure**: Kubernetes 1.28, Helm 3.x, ArgoCD
@@ -31,11 +31,10 @@
 
 ### 📖 주요 문서
 - **[README.md](docs/README.md)**: 전체 시스템 개요 및 상세 아키텍처
-- **[Usecase.md](docs/Usecase.md)**: 큐별 데이터 흐름 시나리오
-- **[ProjectInfo.md](docs/ProjectInfo.md)**: 프로젝트별 역할 및 기술 스택
-- **[Api.md](docs/Api.md)**: 완전한 REST API 명세서
-- **[DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)**: 4단계 4주 개발 계획
-- **[TEAM_WORK_GUIDE.md](docs/TEAM_WORK_GUIDE.md)**: 팀 업무 분담 및 협업 가이드
+- **[ProjectOverview.md](docs/ProjectOverview.md)**: 프로젝트 개요 및 4단계 개발 계획
+- **[Usecase.md](docs/Usecase.md)**: 사용 사례 및 데이터 플로우
+- **[Api.md](docs/Api.md)**: API 문서 인덱스
+- **[BrdExample.md](docs/BrdExample.md)**: 비즈니스 요구사항 문서
 
 ## 🚀 빠른 시작
 
@@ -97,7 +96,7 @@ helm install queue-portal ./queue-infra/portal --namespace queue
   - 시스템 아키텍처 설계 및 검증
   - 프로젝트 일정 관리 및 품질 관리
   - 외부 연동 전략 수립
-- **관련 문서**: [docs/README.md](docs/README.md), [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)
+- **관련 문서**: [docs/README.md](docs/README.md), [docs/ProjectOverview.md](docs/ProjectOverview.md)
 
 ### 🔐 차장님 - queue-login 전담
 - **담당 영역**: JWT 기반 인증 시스템, 사용자 관리
@@ -135,7 +134,7 @@ helm install queue-portal ./queue-infra/portal --namespace queue
   - 부하 테스트 및 스트레스 테스트
   - Usecase 시나리오 검증 및 테스트
   - 성능 메트릭 수집 및 분석
-- **관련 문서**: [docs/Usecase.md](docs/Usecase.md) (테스트 시나리오), [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md) (테스트 계획)
+- **관련 문서**: [docs/Usecase.md](docs/Usecase.md) (테스트 시나리오), [docs/ProjectOverview.md](docs/ProjectOverview.md) (테스트 계획)
 
 ## 📅 개발 일정
 
