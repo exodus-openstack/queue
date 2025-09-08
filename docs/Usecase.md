@@ -10,14 +10,6 @@
 - [1.3 토큰 갱신](#13-토큰-갱신)
 - [1.4 사용자 로그아웃](#14-사용자-로그아웃)
 
-#### Phase 2: IAM 기반 고급 시스템 (추후)
-- [1.5 IAM 기반 사용자 회원가입](#15-iam-기반-사용자-회원가입)
-- [1.6 IAM 기반 사용자 로그인](#16-iam-기반-사용자-로그인)
-- [1.7 IAM 토큰 갱신](#17-iam-토큰-갱신)
-- [1.8 IAM 기반 사용자 로그아웃](#18-iam-기반-사용자-로그아웃)
-- [1.9 IAM 그룹 관리](#19-iam-그룹-관리)
-- [1.10 IAM 정책 관리](#110-iam-정책-관리)
-- [1.11 IAM 권한 검증](#111-iam-권한-검증)
 
 ### 2. 로그인 큐 시스템
 - [2.1 로그인 큐 진입](#21-로그인-큐-진입)
@@ -63,55 +55,44 @@ sequenceDiagram
     participant C as Client
     participant API as API Gateway
     participant Auth as Auth Service
-    participant IAM as IAM System
     participant Redis as Redis
     participant DB as MariaDB
     
     C->>API: POST /api/auth/register
-    Note over C,API: {username, password, email, nickname, iamGroups}
+    Note over C,API: {username, password, email, nickname}
     
-    API->>Auth: IAM 회원가입 요청
-    Auth->>IAM: IAM 사용자 등록 요청
-    IAM->>IAM: IAM 정책 검증
-    IAM-->>Auth: IAM 등록 승인
-    Auth->>Redis: IAM 사용자명 중복 확인
+    API->>Auth: 회원가입 요청
+    Auth->>Redis: 사용자명 중복 확인
     Redis-->>Auth: 중복 여부
     
-    alt IAM 등록 성공 & 중복 없음
-        Auth->>IAM: IAM 사용자 생성
-        IAM-->>Auth: IAM 사용자 ID
-        Auth->>Auth: IAM 암호화된 비밀번호 생성
-        Auth->>DB: IAM 사용자 정보 저장
+    alt 등록 성공 & 중복 없음
+        Auth->>Auth: 암호화된 비밀번호 생성
+        Auth->>DB: 사용자 정보 저장
         DB-->>Auth: 저장 완료
-        Auth->>Regit remdis: IAM 사용자 캐시 저장
-        Auth-->>API: IAM 회원가입 성공
-        API-->>C: 201 Created + {iamGroups, iamPolicies}
-    else IAM 등록 실패 또는 중복
-        Auth-->>API: IAM 등록 오류
+        Auth->>Redis: 사용자 캐시 저장
+        Auth-->>API: 회원가입 성공
+        API-->>C: 201 Created
+    else 등록 실패 또는 중복
+        Auth-->>API: 등록 오류
         API-->>C: 409 Conflict
     end
 ```
 
 #### Redis 데이터 구조
 ```redis
-# IAM 사용자 정보 캐시
-HSET iam:user:user123 username "user123"
-HSET iam:user:user123 email "user@example.com"
-HSET iam:user:user123 nickname "닉네임"
-HSET iam:user:user123 iamGroups "Normal_Users"
-HSET iam:user:user123 iamPolicies "basic_access"
-HSET iam:user:user123 status "ACTIVE"
-HSET iam:user:user123 created_at "2024-12-18T10:00:00Z"
-HSET iam:user:user123 iamMetadata '{"riskScore":0.1,"lastPolicyUpdate":"2024-12-18T10:00:00Z"}'
+# 사용자 정보 캐시
+HSET user:user123 username "user123"
+HSET user:user123 email "user@example.com"
+HSET user:user123 nickname "닉네임"
+HSET user:user123 role "NORMAL"
+HSET user:user123 status "ACTIVE"
+HSET user:user123 created_at "2024-12-18T10:00:00Z"
 
-# IAM 사용자명 인덱스
-SADD iam:usernames "user123"
+# 사용자명 인덱스
+SADD usernames "user123"
 
-# IAM 이메일 인덱스
-SADD iam:emails "user@example.com"
-
-# IAM 그룹 매핑
-SADD iam:group:Normal_Users:members "user123"
+# 이메일 인덱스
+SADD emails "user@example.com"
 ```
 
 ### 1.2 사용자 로그인
@@ -122,56 +103,55 @@ sequenceDiagram
     participant C as Client
     participant API as API Gateway
     participant Auth as Auth Service
-    participant IAM as IAM System
     participant Redis as Redis
     participant DB as MariaDB
     
     C->>API: POST /api/auth/login
     Note over C,API: {username, password}
     
-    API->>Auth: IAM 로그인 요청
-    Auth->>IAM: IAM 인증 요청
-    IAM->>IAM: IAM 정책 검증
-    IAM-->>Auth: IAM 인증 결과
-    Auth->>Redis: IAM 사용자 정보 조회
+    API->>Auth:  로그인 요청
+    Auth->>:  인증 요청
+->>:  정책 검증
+-->>Auth:  인증 결과
+    Auth->>Redis:  사용자 정보 조회
     
-    alt IAM 캐시에 있음
-        Redis-->>Auth: IAM 사용자 정보
-    else IAM 캐시에 없음
-        Auth->>DB: IAM 사용자 정보 조회
-        DB-->>Auth: IAM 사용자 정보
-        Auth->>Redis: IAM 사용자 정보 캐시 저장
+    alt  캐시에 있음
+        Redis-->>Auth:  사용자 정보
+    else  캐시에 없음
+        Auth->>DB:  사용자 정보 조회
+        DB-->>Auth:  사용자 정보
+        Auth->>Redis:  사용자 정보 캐시 저장
     end
     
-    Auth->>IAM: IAM 비밀번호 검증
-    IAM-->>Auth: IAM 인증 성공
+    Auth->>:  비밀번호 검증
+-->>Auth:  인증 성공
     
-    alt IAM 인증 성공
-        Auth->>IAM: IAM JWT 토큰 생성 요청
-        IAM-->>Auth: IAM Access Token, Refresh Token
-        Auth->>Redis: IAM Refresh Token 저장
-        Auth-->>API: IAM 토큰 반환
-        API-->>C: 200 OK + {accessToken, refreshToken, iamGroups, iamPolicies}
-    else IAM 인증 실패
-        Auth-->>API: IAM 인증 실패
+    alt  인증 성공
+        Auth->>:  JWT 토큰 생성 요청
+-->>Auth:  Access Token, Refresh Token
+        Auth->>Redis:  Refresh Token 저장
+        Auth-->>API:  토큰 반환
+        API-->>C: 200 OK + {accessToken, refreshToken}
+    else  인증 실패
+        Auth-->>API:  인증 실패
         API-->>C: 401 Unauthorized
     end
 ```
 
 #### Redis 데이터 구조
 ```redis
-# IAM JWT 토큰 저장
-HSET iam:refresh_tokens:user123 token "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-HSET iam:refresh_tokens:user123 expires_at "2024-12-25T10:00:00Z"
-HSET iam:refresh_tokens:user123 iam_groups "VIP_Users,Premium_Users"
-HSET iam:refresh_tokens:user123 iam_policies "queue_priority,game_early_access"
+#  JWT 토큰 저장
+HSET refresh_tokens:user123 token "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+HSET refresh_tokens:user123 expires_at "2024-12-25T10:00:00Z"
+HSET refresh_tokens:user123 role "VIP_Users,Premium_Users"
+HSET refresh_tokens:user123 permissions "queue_priority,game_early_access"
 
-# IAM 사용자 세션
-HSET iam:session:user123 last_login "2024-12-18T10:00:00Z"
-HSET iam:session:user123 login_count 1
-HSET iam:session:user123 iam_groups "VIP_Users,Premium_Users"
-HSET iam:session:user123 iam_policies "queue_priority,game_early_access"
-HSET iam:session:user123 risk_score 0.2
+#  사용자 세션
+HSET session:user123 last_login "2024-12-18T10:00:00Z"
+HSET session:user123 login_count 1
+HSET session:user123 role "VIP_Users,Premium_Users"
+HSET session:user123 permissions "queue_priority,game_early_access"
+HSET session:user123 risk_score 0.2
 ```
 
 ### 1.3 토큰 갱신
@@ -182,26 +162,25 @@ sequenceDiagram
     participant C as Client
     participant API as API Gateway
     participant Auth as Auth Service
-    participant IAM as IAM System
     participant Redis as Redis
     
     C->>API: POST /api/auth/refresh
     Note over C,API: {refreshToken}
     
-    API->>Auth: IAM 토큰 갱신 요청
-    Auth->>IAM: IAM 세션 검증
-    IAM-->>Auth: IAM 세션 유효성
-    Auth->>Redis: IAM Refresh Token 검증
+    API->>Auth:  토큰 갱신 요청
+    Auth->>:  세션 검증
+-->>Auth:  세션 유효성
+    Auth->>Redis:  Refresh Token 검증
     Redis-->>Auth: 토큰 유효성
     
-    alt IAM 토큰 유효
-        Auth->>IAM: 새 IAM Access Token 요청
-        IAM-->>Auth: 새 IAM Access Token
-        Auth->>Redis: 새 IAM Refresh Token 저장
-        Auth-->>API: 새 IAM 토큰 반환
+    alt  토큰 유효
+        Auth->>: 새  Access Token 요청
+-->>Auth: 새  Access Token
+        Auth->>Redis: 새  Refresh Token 저장
+        Auth-->>API: 새  토큰 반환
         API-->>C: 200 OK + {accessToken, refreshToken}
-    else IAM 토큰 무효
-        Auth-->>API: IAM 토큰 무효
+    else  토큰 무효
+        Auth-->>API:  토큰 무효
         API-->>C: 401 Unauthorized
     end
 ```
@@ -214,24 +193,21 @@ sequenceDiagram
     participant C as Client
     participant API as API Gateway
     participant Auth as Auth Service
-    participant IAM as IAM System
     participant Redis as Redis
     
     C->>API: POST /api/auth/logout
     Note over C,API: {refreshToken}
     
-    API->>Auth: IAM 로그아웃 요청
-    Auth->>IAM: IAM 세션 무효화
-    IAM-->>Auth: IAM 세션 무효화 완료
-    Auth->>Redis: IAM Refresh Token 삭제
+    API->>Auth:  로그아웃 요청
+    Auth->>:  세션 무효화
+-->>Auth:  세션 무효화 완료
+    Auth->>Redis:  Refresh Token 삭제
     Redis-->>Auth: 삭제 완료
-    Auth-->>API: IAM 로그아웃 완료
+    Auth-->>API:  로그아웃 완료
     API-->>C: 200 OK
 ```
 
-### Phase 2: IAM 기반 고급 시스템 (추후)
 
-### 1.5 IAM 기반 사용자 회원가입
 
 #### 데이터 흐름
 ```mermaid
@@ -239,118 +215,58 @@ sequenceDiagram
     participant C as Client
     participant API as API Gateway
     participant Auth as Auth Service
-    participant IAM as IAM System
-    participant Redis as Redis
-    participant DB as MariaDB
-    
-    C->>API: POST /api/auth/register
-    Note over C,API: {username, password, email, nickname, iamGroups}
-    
-    API->>Auth: IAM 회원가입 요청
-    Auth->>IAM: IAM 사용자 등록 요청
-    IAM->>IAM: IAM 정책 검증
-    IAM-->>Auth: IAM 등록 승인
-    Auth->>Redis: IAM 사용자명 중복 확인
-    Redis-->>Auth: 중복 여부
-    
-    alt IAM 등록 성공 & 중복 없음
-        Auth->>IAM: IAM 사용자 생성
-        IAM-->>Auth: IAM 사용자 ID
-        Auth->>Auth: IAM 암호화된 비밀번호 생성
-        Auth->>DB: IAM 사용자 정보 저장
-        DB-->>Auth: 저장 완료
-        Auth->>Redis: IAM 사용자 캐시 저장
-        Auth-->>API: IAM 회원가입 성공
-        API-->>C: 201 Created + {iamGroups, iamPolicies}
-    else IAM 등록 실패 또는 중복
-        Auth-->>API: IAM 등록 오류
-        API-->>C: 409 Conflict
-    end
-```
-
-#### Redis 데이터 구조
-```redis
-# IAM 사용자 정보 캐시
-HSET iam:user:user123 username "user123"
-HSET iam:user:user123 email "user@example.com"
-HSET iam:user:user123 nickname "닉네임"
-HSET iam:user:user123 iamGroups "Normal_Users"
-HSET iam:user:user123 iamPolicies "basic_access"
-HSET iam:user:user123 status "ACTIVE"
-HSET iam:user:user123 created_at "2024-12-18T10:00:00Z"
-HSET iam:user:user123 iamMetadata '{"riskScore":0.1,"lastPolicyUpdate":"2024-12-18T10:00:00Z"}'
-
-# IAM 사용자명 인덱스
-SADD iam:usernames "user123"
-
-# IAM 이메일 인덱스
-SADD iam:emails "user@example.com"
-
-# IAM 그룹 매핑
-SADD iam:group:Normal_Users:members "user123"
-```
-
-### 1.6 IAM 기반 사용자 로그인
-
-#### 데이터 흐름
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant API as API Gateway
-    participant Auth as Auth Service
-    participant IAM as IAM System
     participant Redis as Redis
     participant DB as MariaDB
     
     C->>API: POST /api/auth/login
     Note over C,API: {username, password}
     
-    API->>Auth: IAM 로그인 요청
-    Auth->>IAM: IAM 인증 요청
-    IAM->>IAM: IAM 정책 검증
-    IAM-->>Auth: IAM 인증 결과
-    Auth->>Redis: IAM 사용자 정보 조회
+    API->>Auth:  로그인 요청
+    Auth->>:  인증 요청
+->>:  정책 검증
+-->>Auth:  인증 결과
+    Auth->>Redis:  사용자 정보 조회
     
-    alt IAM 캐시에 있음
-        Redis-->>Auth: IAM 사용자 정보
-    else IAM 캐시에 없음
-        Auth->>DB: IAM 사용자 정보 조회
-        DB-->>Auth: IAM 사용자 정보
-        Auth->>Redis: IAM 사용자 정보 캐시 저장
+    alt  캐시에 있음
+        Redis-->>Auth:  사용자 정보
+    else  캐시에 없음
+        Auth->>DB:  사용자 정보 조회
+        DB-->>Auth:  사용자 정보
+        Auth->>Redis:  사용자 정보 캐시 저장
     end
     
-    Auth->>IAM: IAM 비밀번호 검증
-    IAM-->>Auth: IAM 인증 성공
+    Auth->>:  비밀번호 검증
+-->>Auth:  인증 성공
     
-    alt IAM 인증 성공
-        Auth->>IAM: IAM JWT 토큰 생성 요청
-        IAM-->>Auth: IAM Access Token, Refresh Token
-        Auth->>Redis: IAM Refresh Token 저장
-        Auth-->>API: IAM 토큰 반환
-        API-->>C: 200 OK + {accessToken, refreshToken, iamGroups, iamPolicies}
-    else IAM 인증 실패
-        Auth-->>API: IAM 인증 실패
+    alt  인증 성공
+        Auth->>:  JWT 토큰 생성 요청
+-->>Auth:  Access Token, Refresh Token
+        Auth->>Redis:  Refresh Token 저장
+        Auth-->>API:  토큰 반환
+        API-->>C: 200 OK + {accessToken, refreshToken}
+    else  인증 실패
+        Auth-->>API:  인증 실패
         API-->>C: 401 Unauthorized
     end
 ```
 
 #### Redis 데이터 구조
 ```redis
-# IAM JWT 토큰 저장
-HSET iam:refresh_tokens:user123 token "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-HSET iam:refresh_tokens:user123 expires_at "2024-12-25T10:00:00Z"
-HSET iam:refresh_tokens:user123 iam_groups "VIP_Users,Premium_Users"
-HSET iam:refresh_tokens:user123 iam_policies "queue_priority,game_early_access"
+#  JWT 토큰 저장
+HSET refresh_tokens:user123 token "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+HSET refresh_tokens:user123 expires_at "2024-12-25T10:00:00Z"
+HSET refresh_tokens:user123 role "VIP_Users,Premium_Users"
+HSET refresh_tokens:user123 permissions "queue_priority,game_early_access"
 
-# IAM 사용자 세션
-HSET iam:session:user123 last_login "2024-12-18T10:00:00Z"
-HSET iam:session:user123 login_count 1
-HSET iam:session:user123 iam_groups "VIP_Users,Premium_Users"
-HSET iam:session:user123 iam_policies "queue_priority,game_early_access"
-HSET iam:session:user123 risk_score 0.2
+#  사용자 세션
+HSET session:user123 last_login "2024-12-18T10:00:00Z"
+HSET session:user123 login_count 1
+HSET session:user123 role "VIP_Users,Premium_Users"
+HSET session:user123 permissions "queue_priority,game_early_access"
+HSET session:user123 risk_score 0.2
 ```
 
-### 1.7 IAM 토큰 갱신
+### 1.7  토큰 갱신
 
 #### 데이터 흐름
 ```mermaid
@@ -358,31 +274,30 @@ sequenceDiagram
     participant C as Client
     participant API as API Gateway
     participant Auth as Auth Service
-    participant IAM as IAM System
     participant Redis as Redis
     
     C->>API: POST /api/auth/refresh
     Note over C,API: {refreshToken}
     
-    API->>Auth: IAM 토큰 갱신 요청
-    Auth->>IAM: IAM 세션 검증
-    IAM-->>Auth: IAM 세션 유효성
-    Auth->>Redis: IAM Refresh Token 검증
+    API->>Auth:  토큰 갱신 요청
+    Auth->>:  세션 검증
+-->>Auth:  세션 유효성
+    Auth->>Redis:  Refresh Token 검증
     Redis-->>Auth: 토큰 유효성
     
-    alt IAM 토큰 유효
-        Auth->>IAM: 새 IAM Access Token 요청
-        IAM-->>Auth: 새 IAM Access Token
-        Auth->>Redis: 새 IAM Refresh Token 저장
-        Auth-->>API: 새 IAM 토큰 반환
+    alt  토큰 유효
+        Auth->>: 새  Access Token 요청
+-->>Auth: 새  Access Token
+        Auth->>Redis: 새  Refresh Token 저장
+        Auth-->>API: 새  토큰 반환
         API-->>C: 200 OK + {accessToken, refreshToken}
-    else IAM 토큰 무효
-        Auth-->>API: IAM 토큰 무효
+    else  토큰 무효
+        Auth-->>API:  토큰 무효
         API-->>C: 401 Unauthorized
     end
 ```
 
-### 1.8 IAM 기반 사용자 로그아웃
+### 1.8  기반 사용자 로그아웃
 
 #### 데이터 흐름
 ```mermaid
@@ -390,22 +305,21 @@ sequenceDiagram
     participant C as Client
     participant API as API Gateway
     participant Auth as Auth Service
-    participant IAM as IAM System
     participant Redis as Redis
     
     C->>API: POST /api/auth/logout
     Note over C,API: {refreshToken}
     
-    API->>Auth: IAM 로그아웃 요청
-    Auth->>IAM: IAM 세션 무효화
-    IAM-->>Auth: IAM 세션 무효화 완료
-    Auth->>Redis: IAM Refresh Token 삭제
+    API->>Auth:  로그아웃 요청
+    Auth->>:  세션 무효화
+-->>Auth:  세션 무효화 완료
+    Auth->>Redis:  Refresh Token 삭제
     Redis-->>Auth: 삭제 완료
-    Auth-->>API: IAM 로그아웃 완료
+    Auth-->>API:  로그아웃 완료
     API-->>C: 200 OK
 ```
 
-### 1.9 IAM 그룹 관리
+### 1.9  그룹 관리
 
 #### 데이터 흐름
 ```mermaid
@@ -413,35 +327,34 @@ sequenceDiagram
     participant C as Client
     participant API as API Gateway
     participant Auth as Auth Service
-    participant IAM as IAM System
     participant Redis as Redis
     
-    C->>API: GET /api/iam/groups
+    C->>API: GET /api//groups
     Note over C,API: Authorization: Bearer {token}
     
-    API->>Auth: IAM 그룹 조회 요청
-    Auth->>IAM: 사용자 IAM 그룹 조회
-    IAM-->>Auth: IAM 그룹 정보
-    Auth->>Redis: IAM 그룹 정보 캐시
+    API->>Auth:  그룹 조회 요청
+    Auth->>: 사용자  그룹 조회
+-->>Auth:  그룹 정보
+    Auth->>Redis:  그룹 정보 캐시
     Redis-->>Auth: 캐시 완료
-    Auth-->>API: IAM 그룹 목록
+    Auth-->>API:  그룹 목록
     API-->>C: 200 OK + {groups}
 ```
 
 #### Redis 데이터 구조
 ```redis
-# IAM 그룹 정보
-HSET iam:groups:group123 groupName "VIP Users"
-HSET iam:groups:group123 description "VIP 사용자 그룹"
-HSET iam:groups:group123 memberCount 150
-HSET iam:groups:group123 permissions "queue_priority,game_early_access"
+#  그룹 정보
+HSET :groups:group123 groupName "VIP Users"
+HSET :groups:group123 description "VIP 사용자 그룹"
+HSET :groups:group123 memberCount 150
+HSET :groups:group123 permissions "queue_priority,game_early_access"
 
-# 사용자 IAM 그룹 매핑
-SADD iam:user:user123:groups "group123"
-SADD iam:user:user123:groups "group456"
+# 사용자  그룹 매핑
+SADD :user:user123:groups "group123"
+SADD :user:user123:groups "group456"
 ```
 
-### 1.6 IAM 정책 관리
+### 1.6  정책 관리
 
 #### 데이터 흐름
 ```mermaid
@@ -449,33 +362,32 @@ sequenceDiagram
     participant C as Client
     participant API as API Gateway
     participant Auth as Auth Service
-    participant IAM as IAM System
     participant Redis as Redis
     
-    C->>API: GET /api/iam/policies
+    C->>API: GET /api//policies
     Note over C,API: Authorization: Bearer {token}
     
-    API->>Auth: IAM 정책 조회 요청
-    Auth->>IAM: IAM 정책 조회
-    IAM-->>Auth: IAM 정책 정보
-    Auth->>Redis: IAM 정책 캐시
+    API->>Auth:  정책 조회 요청
+    Auth->>:  정책 조회
+-->>Auth:  정책 정보
+    Auth->>Redis:  정책 캐시
     Redis-->>Auth: 캐시 완료
-    Auth-->>API: IAM 정책 목록
+    Auth-->>API:  정책 목록
     API-->>C: 200 OK + {policies}
 ```
 
 #### Redis 데이터 구조
 ```redis
-# IAM 정책 정보
-HSET iam:policies:policy123 policyName "Queue Access Policy"
-HSET iam:policies:policy123 description "큐 접근 정책"
-HSET iam:policies:policy123 rules '[{"action":"queue:join","resource":"queue:login","condition":"user.role == \"VIP\""}]'
+#  정책 정보
+HSET :policies:policy123 policyName "Queue Access Policy"
+HSET :policies:policy123 description "큐 접근 정책"
+HSET :policies:policy123 rules '[{"action":"queue:join","resource":"queue:login","condition":"user.role == \"VIP\""}]'
 
-# IAM 정책 캐시
-SET iam:policy:cache:last_update "2024-01-01T00:00:00Z"
+#  정책 캐시
+SET :policy:cache:last_update "2024-01-01T00:00:00Z"
 ```
 
-### 1.7 IAM 권한 검증
+### 1.7  권한 검증
 
 #### 데이터 흐름
 ```mermaid
@@ -483,16 +395,15 @@ sequenceDiagram
     participant C as Client
     participant API as API Gateway
     participant Auth as Auth Service
-    participant IAM as IAM System
     participant Redis as Redis
     
-    C->>API: POST /api/iam/check-permission
+    C->>API: POST /api//check-permission
     Note over C,API: {action, resource, context}
     
-    API->>Auth: IAM 권한 검증 요청
-    Auth->>IAM: 사용자 권한 검증
-    IAM->>IAM: 정책 엔진 실행
-    IAM-->>Auth: 권한 검증 결과
+    API->>Auth:  권한 검증 요청
+    Auth->>: 사용자 권한 검증
+->>: 정책 엔진 실행
+-->>Auth: 권한 검증 결과
     Auth->>Redis: 검증 결과 캐시
     Redis-->>Auth: 캐시 완료
     Auth-->>API: 권한 검증 결과
@@ -501,14 +412,14 @@ sequenceDiagram
 
 #### Redis 데이터 구조
 ```redis
-# IAM 권한 검증 캐시
-HSET iam:permission:cache:user123:queue:join:queue:login allowed true
-HSET iam:permission:cache:user123:queue:join:queue:login reason "User has VIP role with queue priority access"
-HSET iam:permission:cache:user123:queue:join:queue:login policyMatched "policy123"
-HSET iam:permission:cache:user123:queue:join:queue:login expiresAt "2024-01-01T01:00:00Z"
+#  권한 검증 캐시
+HSET :permission:cache:user123:queue:join:queue:login allowed true
+HSET :permission:cache:user123:queue:join:queue:login reason "User has VIP role with queue priority access"
+HSET :permission:cache:user123:queue:join:queue:login policyMatched "policy123"
+HSET :permission:cache:user123:queue:join:queue:login expiresAt "2024-01-01T01:00:00Z"
 
-# IAM 감사 로그
-LPUSH iam:audit:logs "2024-01-01T00:00:00Z|user123|queue:join|queue:login|ALLOWED|policy123"
+#  감사 로그
+LPUSH :audit:logs "2024-01-01T00:00:00Z|user123|queue:join|queue:login|ALLOWED|policy123"
 ```
 
 ---

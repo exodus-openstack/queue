@@ -743,7 +743,7 @@ def distribute_queue_load(queue_type, current_load, max_capacity):
 - **네트워크 최적화**: 배치 처리 및 압축 전송
 - **캐싱 전략**: 자주 조회되는 데이터 캐싱
 
-#### 2. 비용 최적화
+#### 2. 리소스 최적화
 - **리소스 모니터링**: 사용하지 않는 리소스 정리
 - **자동 스케일링**: 필요에 따른 리소스 조정
 - **데이터 아카이빙**: 오래된 데이터 아카이빙
@@ -862,6 +862,14 @@ def distribute_queue_load(queue_type, current_load, max_capacity):
 - **Docker**: 컨테이너화
 
 ## 📈 추후 개발 기능
+
+### IAM 기반 인증 시스템 (추후 개발 예정)
+- **Keycloak IAM**: 엔터프라이즈급 IAM 시스템 연동
+- **OAuth 2.0**: 소셜 로그인 연동
+- **SAML 2.0**: 기업용 SAML 기반 IAM 연동
+- **LDAP/Active Directory**: 기업 내부 디렉토리 IAM 연동
+- **IAM 정책 엔진**: 세밀한 권한 제어 및 정책 관리
+- **IAM 그룹 관리**: 사용자 그룹 기반 권한 관리
 
 ### 모니터링 및 알림 시스템
 - **메트릭 수집**: Prometheus를 통한 애플리케이션, Redis, Kubernetes 메트릭 수집

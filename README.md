@@ -99,16 +99,13 @@ helm install queue-portal ./queue-infra/portal --namespace queue
   - 외부 연동 전략 수립
 - **관련 문서**: [docs/README.md](docs/README.md), [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)
 
-### 🔐 차장님 - queue-login 전담 (IAM 기반)
-- **담당 영역**: IAM 기반 인증 시스템, SSO, 외부 연동
+### 🔐 차장님 - queue-login 전담
+- **담당 영역**: JWT 기반 인증 시스템, 사용자 관리
 - **주요 업무**:
-  - IAM 기반 JWT 인증 시스템 개발
-  - Keycloak IAM 연동
-  - OAuth2, SAML 외부 IAM 연동
-  - IAM 정책 기반 사용자 관리 및 권한 제어
-  - IAM 보안 정책 수립 및 구현
-  - IAM 그룹 관리 및 정책 엔진 구현
-- **관련 문서**: [docs/Api.md](docs/Api.md) (IAM API), [docs/Usecase.md](docs/Usecase.md) (IAM 플로우)
+  - JWT 기반 인증 시스템 개발
+  - 사용자 회원가입/로그인 기능
+  - 보안 정책 및 토큰 관리
+- **관련 문서**: [docs/Api.md](docs/Api.md), [docs/Usecase.md](docs/Usecase.md)
 
 ### ⚙️ 과장님 - queue-infra & queue-backend
 - **담당 영역**: 인프라 관리, 큐 시스템, 백엔드 API
@@ -120,7 +117,7 @@ helm install queue-portal ./queue-infra/portal --namespace queue
   - 모니터링 및 장애 대응
 - **관련 문서**: [docs/ProjectInfo.md](docs/ProjectInfo.md) (인프라/백엔드), [docs/Api.md](docs/Api.md) (큐 관련)
 
-### 🎮 A 대리님 - queue-portal
+### 🎮 A대리님 - queue-portal
 - **담당 영역**: 프론트엔드, UI/UX, 게임 개발
 - **주요 업무**:
   - Vue.js/React.js 프론트엔드 개발
@@ -130,7 +127,7 @@ helm install queue-portal ./queue-infra/portal --namespace queue
   - 반응형 디자인 및 사용자 경험 최적화
 - **관련 문서**: [docs/Usecase.md](docs/Usecase.md) (UI 플로우), [docs/ProjectInfo.md](docs/ProjectInfo.md) (프론트엔드)
 
-### 🧪 B 대리님 - K6 성능 테스트
+### 🧪 B대리님 - K6 성능 테스트
 - **담당 영역**: 성능 테스트, Usecase 검증
 - **주요 업무**:
   - K6 기반 성능 테스트 시나리오 작성
