@@ -331,9 +331,9 @@ Queue 시스템의 비즈니스 요구사항을 명확히 정의하고, 프로�
 
 ### 📊 참고 문서
 - [전체 프로젝트 문서](https://github.com/exodus-openstack/queue/tree/main/docs)
-- [팀 업무 가이드](https://github.com/exodus-openstack/queue/tree/main/docs/TEAM_WORK_GUIDE.md)
+- [프로젝트 개요](https://github.com/exodus-openstack/queue/tree/main/docs/ProjectOverview.md)
 - [API 명세서](https://github.com/exodus-openstack/queue/tree/main/docs/Api.md)
-- [프로젝트 정보](https://github.com/exodus-openstack/queue/tree/main/docs/ProjectInfo.md)
+- [사용 사례](https://github.com/exodus-openstack/queue/tree/main/docs/Usecase.md)
 
 ### 🔗 관련 링크
 - **GitHub Repository**: https://github.com/exodus-openstack/queue

@@ -1,4 +1,4 @@
-# Queue System - 대용량 로그인 큐잉 시스템
+# 🚀 Queue System - 대용량 로그인 큐잉 시스템
 
 ## 🚀 전체 개요
 
@@ -953,10 +953,14 @@ cd queue-infra
 - [queue-infra/README.md](queue-infra/README.md) - 인프라 관리
 
 ### 개발 계획서
-- [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) - 상세한 4단계 개발 계획
+- [ProjectOverview.md](ProjectOverview.md) - 프로젝트 개요 및 상세한 4단계 개발 계획
 
 ### API 문서
-- [queue-backend/API_SPECIFICATION.md](queue-backend/API_SPECIFICATION.md) - API 명세서
+- [Api.md](Api.md) - API 문서 인덱스
+- [Usecase.md](Usecase.md) - 사용 사례 및 데이터 플로우
+
+### 비즈니스 문서
+- [BrdExample.md](BrdExample.md) - 비즈니스 요구사항 문서
 
 ## 🤝 기여하기
 
