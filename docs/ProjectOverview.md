@@ -4,9 +4,10 @@
 
 ### 1. 프로젝트 개요
 - [1.1 전체 시스템 구조](#11-전체-시스템-구조)
-- [1.2 프로젝트 간 관계](#12-프로젝트-간-관계)
-- [1.3 기술 스택](#13-기술-스택)
-- [1.4 개발 일정](#14-개발-일정)
+- [1.2 로그인 큐 시스템 플로우](#12-로그인-큐-시스템-플로우)
+- [1.3 프로젝트 간 관계](#13-프로젝트-간-관계)
+- [1.4 기술 스택](#14-기술-스택)
+- [1.5 개발 일정](#15-개발-일정)
 
 ### 2. 프로젝트별 상세 정보
 - [2.1 queue-portal (프론트엔드)](#21-queue-portal-프론트엔드)
@@ -39,21 +40,21 @@
 ```mermaid
 graph TB
     subgraph "Frontend Layer"
-        A[queue-portal<br/>React.js + TypeScript]
+        A[queue-portal<br/>React.js + TypeScript<br/>SSE 클라이언트]
     end
     
     subgraph "API Gateway Layer"
-        B[API Gateway<br/>Nginx/Envoy]
+        B[API Gateway<br/>Nginx/Envoy<br/>Rate Limiting]
     end
     
     subgraph "Backend Services"
-        C[queue-backend<br/>Java Spring Boot]
-        D[queue-login<br/>Java Spring Boot]
+        C[queue-backend<br/>Java Spring Boot<br/>SSE 서버 + 큐 관리]
+        D[queue-login<br/>Java Spring Boot<br/>인증 + 티켓 발급]
     end
     
     subgraph "Data Layer"
-        E[Redis Cluster<br/>Queue & Cache]
-        F[MariaDB<br/>Persistent Storage]
+        E[Redis Cluster<br/>큐 + 티켓 + SSE 상태]
+        F[MariaDB<br/>사용자 데이터]
     end
     
     subgraph "Infrastructure Layer"
@@ -61,13 +62,15 @@ graph TB
         H[Monitoring<br/>Prometheus & Grafana]
     end
     
-    A --> B
-    B --> C
-    B --> D
-    C --> E
-    C --> F
-    D --> E
-    D --> F
+    A -->|POST /auth/login| B
+    A -->|SSE /queue/stream| C
+    A -->|POST /auth/finalize| B
+    B -->|인증 요청| D
+    B -->|토큰 발급| D
+    C -->|큐 상태 관리| E
+    C -->|SSE 브로드캐스트| A
+    D -->|사용자 검증| F
+    D -->|티켓 관리| E
     G --> C
     G --> D
     G --> E
@@ -78,7 +81,39 @@ graph TB
     H --> F
 ```
 
-### 1.2 프로젝트 간 관계
+### 1.2 로그인 큐 시스템 플로우
+
+```mermaid
+sequenceDiagram
+    participant U as 사용자
+    participant P as Portal
+    participant L as queue-login
+    participant B as queue-backend
+    participant R as Redis
+    participant D as MariaDB
+    
+    U->>P: 로그인 요청
+    P->>L: POST /auth/login
+    L->>D: 사용자 검증
+    D-->>L: 사용자 정보
+    L->>L: 비밀번호 검증
+    L->>R: 티켓 발급/교체
+    R-->>L: 티켓 정보
+    L-->>P: {tid, clientId}
+    P->>B: SSE 연결
+    B->>R: 큐 상태 조회
+    R-->>B: 대기 순서
+    B-->>P: QUEUE_UPDATE
+    B->>R: Rate Limit 처리
+    R-->>B: READY 티켓
+    B-->>P: QUEUE_READY
+    P->>L: POST /auth/finalize
+    L->>L: JWT 토큰 생성
+    L-->>P: {accessToken, refreshToken}
+    P-->>U: 로그인 완료
+```
+
+### 1.3 프로젝트 간 관계
 
 | 프로젝트 | 역할 | 담당자 | 의존성 | 제공 서비스 |
 |---------|------|--------|--------|------------|
@@ -87,7 +122,7 @@ graph TB
 | **queue-login** | 인증/인가 | 차장님 | Redis, MariaDB | 사용자 인증, 토큰 관리 |
 | **queue-infra** | 인프라 관리 | B대리님 | 모든 프로젝트 | 배포, 모니터링, 장애 대응 |
 
-### 1.3 기술 스택
+### 1.4 기술 스택
 
 #### Frontend
 - **Framework**: React.js 18.x
@@ -114,7 +149,7 @@ graph TB
 - **Monitoring**: Prometheus, Grafana
 - **Logging**: ELK Stack
 
-### 1.4 개발 일정
+### 1.5 개발 일정
 
 | Phase | 기간 | 주요 목표 | 완료율 |
 |-------|------|-----------|--------|

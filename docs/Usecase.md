@@ -11,11 +11,13 @@
 - [1.4 사용자 로그아웃](#14-사용자-로그아웃)
 
 
-### 2. 로그인 큐 시스템
-- [2.1 로그인 큐 진입](#21-로그인-큐-진입)
-- [2.2 로그인 큐 상태 조회](#22-로그인-큐-상태-조회)
-- [2.3 로그인 큐 처리](#23-로그인-큐-처리)
-- [2.4 로그인 큐 퇴장](#24-로그인-큐-퇴장)
+### 2. 로그인 큐 시스템 (대용량 트래픽 대응)
+- [2.1 로그인 요청 및 검증](#21-로그인-요청-및-검증)
+- [2.2 대기열 티켓 발급](#22-대기열-티켓-발급)
+- [2.3 대기열 상태 관리](#23-대기열-상태-관리)
+- [2.4 SSE 실시간 통신](#24-sse-실시간-통신)
+- [2.5 토큰 발급 및 완료](#25-토큰-발급-및-완료)
+- [2.6 다중 접속 처리](#26-다중-접속-처리)
 
 ### 3. 게임 큐 시스템
 - [3.1 게임 매칭 요청](#31-게임-매칭-요청)
@@ -424,135 +426,335 @@ LPUSH :audit:logs "2024-01-01T00:00:00Z|user123|queue:join|queue:login|ALLOWED|p
 
 ---
 
-## 2. 로그인 큐 시스템
+## 2. 로그인 큐 시스템 (대용량 트래픽 대응)
 
-### 2.1 로그인 큐 진입
+### 2.1 로그인 요청 및 검증
 
 #### 데이터 흐름
 ```mermaid
 sequenceDiagram
-    participant C as Client
+    participant C as Client (Portal)
     participant API as API Gateway
-    participant LoginQ as Login Queue Service
+    participant Login as queue-login
     participant Redis as Redis
-    participant Auth as Auth Service
+    participant DB as MariaDB
     
-    C->>API: POST /api/queue/login/join
-    Note over C,API: {userId, priority}
+    C->>API: POST /api/auth/login
+    Note over C,API: {username, password, clientFingerprint}
     
-    API->>LoginQ: 큐 진입 요청
-    LoginQ->>Auth: 사용자 인증 확인
-    Auth-->>LoginQ: 인증 완료
+    API->>Login: 로그인 요청
+    Login->>DB: 사용자 정보 조회
+    DB-->>Login: 사용자 정보
     
-    LoginQ->>LoginQ: 우선순위 계산
-    Note over LoginQ: VIP(1) > PREMIUM(2) > NORMAL(3)
+    Login->>Login: 비밀번호 검증 (BCrypt)
     
-    LoginQ->>Redis: 큐에 사용자 추가
-    Note over Redis: ZADD login_queue:{priority} {timestamp} {userId}
-    
-    LoginQ->>Redis: 큐 메타데이터 업데이트
-    Note over Redis: HSET queue_meta:login total_waiting +1
-    
-    LoginQ-->>API: 큐 진입 완료
-    API-->>C: 200 OK + {position, estimatedWaitTime}
+    alt 인증 성공
+        Login->>Redis: 기존 티켓 확인
+        Note over Redis: GET user:{uid}:ticket
+        
+        alt 기존 티켓 존재
+            Login->>Redis: 티켓 정보 조회
+            Note over Redis: HGETALL ticket:{tid}
+            Login->>Login: 새 clientId 생성
+            Login->>Redis: clientId 교체 (Lua 스크립트)
+            Note over Redis: 원자적 교체로 기존 접속 강제 종료
+        else 새 티켓 발급
+            Login->>Login: 티켓 ID 생성 (HMAC 서명)
+            Login->>Redis: 티켓 정보 저장
+            Note over Redis: HSET ticket:{tid} uid,status,issuedAt,clientId
+        end
+        
+        Login-->>API: 티켓 발급 완료
+        API-->>C: 200 OK + {tid, clientId, queueType: "portal"}
+    else 인증 실패
+        Login-->>API: 인증 실패
+        API-->>C: 401 Unauthorized
+    end
 ```
 
 #### Redis 데이터 구조
 ```redis
-# 우선순위별 로그인 큐
-ZADD login_queue:1 1703123456789 "user123"  # VIP
-ZADD login_queue:2 1703123456790 "user456"  # PREMIUM
-ZADD login_queue:3 1703123456791 "user789"  # NORMAL
+# 사용자별 티켓 관리
+SET user:{uid}:ticket "tid_abc123" EX 900  # 15분 TTL
 
-# 큐 메타데이터
-HSET queue_meta:login total_waiting 1000
-HSET queue_meta:login processing_rate 100
-HSET queue_meta:login avg_wait_time 30
-HSET queue_meta:login last_processed 1703123456789
+# 티켓 상세 정보
+HSET ticket:{tid} uid "user123"
+HSET ticket:{tid} status "PENDING"
+HSET ticket:{tid} issuedAt "1703123456789"
+HSET ticket:{tid} lastSeen "1703123456789"
+HSET ticket:{tid} clientId "client_xyz789"
+HSET ticket:{tid} position 0
+
+# 포털 로그인 큐 (Sorted Set)
+ZADD queue:portal 1703123456789 "tid_abc123"
+
+# SSE 클라이언트 관리
+SADD sse:clients:{tid} "client_xyz789"
 ```
 
-### 2.2 로그인 큐 상태 조회
+### 2.2 대기열 티켓 발급
 
-#### 데이터 흐름
+#### 티켓 발급 로직
 ```mermaid
-sequenceDiagram
-    participant C as Client
-    participant API as API Gateway
-    participant LoginQ as Login Queue Service
-    participant Redis as Redis
+flowchart TD
+    A[로그인 요청] --> B{사용자 인증}
+    B -->|실패| C[401 Unauthorized]
+    B -->|성공| D{기존 티켓 존재?}
     
-    C->>API: GET /api/queue/login/status/{userId}
+    D -->|있음| E[기존 티켓 재사용]
+    D -->|없음| F[새 티켓 생성]
     
-    API->>LoginQ: 상태 조회 요청
-    LoginQ->>Redis: 사용자 큐 위치 조회
-    Redis-->>LoginQ: {position, priority}
+    E --> G[새 clientId 생성]
+    G --> H[Redis Lua 스크립트로 교체]
+    H --> I[기존 SSE 연결 강제 종료]
+    I --> J[티켓 반환]
     
-    LoginQ->>Redis: 큐 통계 조회
-    Redis-->>LoginQ: {totalWaiting, processingRate, avgWaitTime}
+    F --> K[HMAC 서명된 티켓 ID 생성]
+    K --> L[Redis에 티켓 정보 저장]
+    L --> M[큐에 추가]
+    M --> J
     
-    LoginQ->>LoginQ: 예상 대기 시간 계산
-    Note over LoginQ: position / processingRate * 60
-    
-    LoginQ-->>API: 상태 정보
-    API-->>C: 200 OK + {position, estimatedWaitTime, totalWaiting}
+    J --> N[클라이언트에 tid, clientId 반환]
 ```
 
-### 2.3 로그인 큐 처리
+#### Redis Lua 스크립트 (clientId 교체)
+```lua
+-- KEYS[1] = ticket:{tid}
+-- KEYS[2] = sse:clients:{tid}
+-- ARGV[1] = newClientId
+local oldClientId = redis.call('HGET', KEYS[1], 'clientId')
+local status = redis.call('HGET', KEYS[1], 'status')
+if status == 'CANCELLED' then 
+    return {err="cancelled"} 
+end
+redis.call('HSET', KEYS[1], 'clientId', ARGV[1])
+redis.call('HSET', KEYS[1], 'lastSeen', ARGV[2])
+if oldClientId then 
+    redis.call('SREM', KEYS[2], oldClientId) 
+end
+redis.call('SADD', KEYS[2], ARGV[1])
+return oldClientId
+```
 
-#### 데이터 흐름
+### 2.3 대기열 상태 관리
+
+#### Rate Limit 처리
 ```mermaid
 sequenceDiagram
-    participant LoginQ as Login Queue Service
+    participant Scheduler as Queue Scheduler
     participant Redis as Redis
-    participant Auth as Auth Service
-    participant GameQ as Game Queue Service
+    participant Backend as queue-backend
     participant SSE as SSE Service
     
-    loop 큐 처리 루프
-        LoginQ->>Redis: 다음 사용자 조회
-        Note over Redis: ZRANGE login_queue:1 0 0 WITHSCORES
+    loop 초당 실행
+        Scheduler->>Redis: 큐에서 처리할 티켓 조회
+        Note over Redis: ZRANGE queue:portal 0 {LOGIN_ADMIT_RATE-1}
         
-        alt 처리할 사용자 있음
-            Redis-->>LoginQ: {userId, timestamp}
-            LoginQ->>Auth: 사용자 인증 처리
-            Auth-->>LoginQ: 인증 완료
+        alt 처리할 티켓 있음
+            Redis-->>Scheduler: 티켓 목록
             
-            LoginQ->>Redis: 사용자 큐에서 제거
-            Note over Redis: ZREM login_queue:1 {userId}
-            
-            LoginQ->>GameQ: 게임 큐 자동 진입
-            GameQ-->>LoginQ: 진입 완료
-            
-            LoginQ->>SSE: 로그인 완료 알림
-            SSE-->>LoginQ: 알림 전송 완료
-            
-            LoginQ->>Redis: 큐 메타데이터 업데이트
-            Note over Redis: HSET queue_meta:login total_waiting -1
+            loop 각 티켓 처리
+                Scheduler->>Redis: 티켓 상태를 READY로 변경
+                Note over Redis: HSET ticket:{tid} status "READY"
+                
+                Scheduler->>Redis: 큐에서 제거
+                Note over Redis: ZREM queue:portal {tid}
+                
+                Scheduler->>SSE: READY 이벤트 전송
+                SSE-->>Scheduler: 전송 완료
+            end
         end
     end
 ```
 
-### 2.4 로그인 큐 퇴장
+#### Redis 데이터 구조 (Rate Limit)
+```redis
+# 큐 처리 설정
+HSET queue:config:portal admitRate 60  # 분당 60명
+HSET queue:config:portal podCount 3    # Pod 3대
+HSET queue:config:portal totalRate 180 # 총 분당 180명
 
-#### 데이터 흐름
+# 큐 통계
+HSET queue:stats:portal totalWaiting 1250
+HSET queue:stats:portal processedToday 15420
+HSET queue:stats:portal avgWaitTime 45
+```
+
+### 2.4 SSE 실시간 통신
+
+#### SSE 연결 및 인증
 ```mermaid
 sequenceDiagram
     participant C as Client
     participant API as API Gateway
-    participant LoginQ as Login Queue Service
+    participant Backend as queue-backend
     participant Redis as Redis
     
-    C->>API: DELETE /api/queue/login/leave/{userId}
+    C->>API: GET /queue/stream?tid={tid}&clientId={clientId}
     
-    API->>LoginQ: 큐 퇴장 요청
-    LoginQ->>Redis: 사용자 큐에서 제거
-    Note over Redis: ZREM login_queue:{priority} {userId}
+    API->>Backend: SSE 연결 요청
+    Backend->>Redis: 티켓 검증
+    Note over Redis: HGET ticket:{tid} clientId
     
-    LoginQ->>Redis: 큐 메타데이터 업데이트
-    Note over Redis: HSET queue_meta:login total_waiting -1
+    alt 티켓 유효
+        Redis-->>Backend: 티켓 정보
+        Backend->>Backend: clientId 일치 확인
+        
+        alt clientId 일치
+            Backend-->>API: SSE 연결 수립
+            API-->>C: SSE 스트림 시작
+            
+            loop 주기적 업데이트
+                Backend->>Redis: 현재 위치 조회
+                Redis-->>Backend: {position, status}
+                Backend-->>C: QUEUE_UPDATE 이벤트
+            end
+        else clientId 불일치
+            Backend-->>API: 409 Conflict
+            API-->>C: "Another session took over"
+        end
+    else 티켓 무효
+        Backend-->>API: 404 Not Found
+        API-->>C: "Ticket not found"
+    end
+```
+
+#### SSE 이벤트 타입
+```javascript
+// 큐 상태 업데이트
+{
+  "type": "QUEUE_UPDATE",
+  "data": {
+    "position": 123,
+    "estimatedWaitSec": 45,
+    "totalWaiting": 1250
+  }
+}
+
+// 로그인 준비 완료
+{
+  "type": "QUEUE_READY",
+  "data": {
+    "finalizeDeadlineSec": 60,
+    "tid": "tid_abc123"
+  }
+}
+
+// 다른 세션으로 인한 연결 종료
+{
+  "type": "KICKED_OUT",
+  "data": {
+    "reason": "TAKEN_OVER",
+    "message": "다른 곳에서 로그인되어 연결이 종료되었습니다."
+  }
+}
+
+// Keep-alive
+{
+  "type": "KEEPALIVE",
+  "data": {
+    "serverTime": 1703123456789
+  }
+}
+```
+
+### 2.5 토큰 발급 및 완료
+
+#### 최종 토큰 발급
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as API Gateway
+    participant Backend as queue-backend
+    participant Login as queue-login
+    participant Redis as Redis
     
-    LoginQ-->>API: 퇴장 완료
-    API-->>C: 200 OK
+    Note over C: SSE에서 QUEUE_READY 이벤트 수신
+    
+    C->>API: POST /api/auth/finalize
+    Note over C,API: {tid, clientId}
+    
+    API->>Backend: 토큰 발급 요청
+    Backend->>Redis: 티켓 검증
+    Note over Redis: HGETALL ticket:{tid}
+    
+    alt 티켓 유효 (READY 상태)
+        Redis-->>Backend: 티켓 정보
+        Backend->>Backend: clientId 및 상태 검증
+        
+        alt 검증 통과
+            Backend->>Login: JWT 토큰 발급 요청
+            Login->>Login: JWT 생성
+            Login-->>Backend: {accessToken, refreshToken}
+            
+            Backend->>Redis: 티켓 상태를 CONSUMED로 변경
+            Note over Redis: HSET ticket:{tid} status "CONSUMED"
+            
+            Backend->>Redis: 사용자 티켓 정보 삭제
+            Note over Redis: DEL user:{uid}:ticket
+            
+            Backend-->>API: 토큰 발급 완료
+            API-->>C: 200 OK + {accessToken, refreshToken, expiresIn}
+        else 검증 실패
+            Backend-->>API: 400 Bad Request
+            API-->>C: "Invalid ticket or client"
+        end
+    else 티켓 무효
+        Backend-->>API: 404 Not Found
+        API-->>C: "Ticket not found or expired"
+    end
+```
+
+### 2.6 다중 접속 처리
+
+#### 동일 계정 다중 접속 처리
+```mermaid
+sequenceDiagram
+    participant C1 as Client 1 (기존)
+    participant C2 as Client 2 (신규)
+    participant API as API Gateway
+    participant Login as queue-login
+    participant Redis as Redis
+    participant SSE as SSE Service
+    
+    Note over C1: 기존 접속 중 (SSE 연결)
+    
+    C2->>API: POST /api/auth/login
+    Note over C2,API: {username, password}
+    
+    API->>Login: 로그인 요청
+    Login->>Redis: 기존 티켓 확인
+    Redis-->>Login: 기존 티켓 존재
+    
+    Login->>Login: 새 clientId 생성
+    Login->>Redis: clientId 교체 (Lua 스크립트)
+    Redis-->>Login: oldClientId 반환
+    
+    Login->>SSE: 기존 연결 강제 종료
+    Note over SSE: KICKED_OUT 이벤트 전송
+    SSE-->>C1: "다른 곳에서 로그인되어 연결이 종료되었습니다."
+    
+    Login-->>API: 동일 티켓, 새 clientId
+    API-->>C2: 200 OK + {tid, newClientId}
+    
+    C2->>API: GET /queue/stream?tid={tid}&clientId={newClientId}
+    API-->>C2: SSE 연결 (기존 대기 순서 유지)
+```
+
+#### Redis 데이터 구조 (다중 접속)
+```redis
+# 사용자별 티켓 (1개만 유지)
+SET user:user123:ticket "tid_abc123" EX 900
+
+# 티켓 상세 정보 (clientId 교체됨)
+HSET ticket:tid_abc123 uid "user123"
+HSET ticket:tid_abc123 status "PENDING"
+HSET ticket:tid_abc123 clientId "client_new456"  # 새 clientId
+HSET ticket:tid_abc123 position 45
+
+# SSE 클라이언트 (1개만 유지)
+SADD sse:clients:tid_abc123 "client_new456"
+SREM sse:clients:tid_abc123 "client_old789"  # 기존 제거
 ```
 
 ---
