@@ -1,0 +1,48 @@
+# 전체 프로젝트 Docker Build & Push 명령어 모음
+# 프로젝트 루트: C:\Users\INSoft\.git\queue
+
+# ===========================================
+# 1. Queue Backend (Java Spring Boot)
+# ===========================================
+cd queue-backend\java
+docker build -t 123.212.43.8:41000/queue/queue-backend:latest .
+docker build -t 123.212.43.8:41000/queue/queue-backend:$(Get-Date -Format "yyyyMMdd-HHmm") .
+docker push 123.212.43.8:41000/queue/queue-backend:latest
+docker push 123.212.43.8:41000/queue/queue-backend:$(Get-Date -Format "yyyyMMdd-HHmm")
+
+# ===========================================
+# 2. Queue Login (Java Spring Boot)
+# ===========================================
+cd ..\..\queue-login
+docker build -t 123.212.43.8:41000/queue/queue-login:latest .
+docker build -t 123.212.43.8:41000/queue/queue-login:$(Get-Date -Format "yyyyMMdd-HHmm") .
+docker push 123.212.43.8:41000/queue/queue-login:latest
+docker push 123.212.43.8:41000/queue/queue-login:$(Get-Date -Format "yyyyMMdd-HHmm")
+
+# ===========================================
+# 3. Queue Portal (React + TypeScript + Vite)
+# ===========================================
+cd ..\queue-portal\temp-project
+docker build -t 123.212.43.8:41000/queue/queue-portal:latest .
+docker build -t 123.212.43.8:41000/queue/queue-portal:$(Get-Date -Format "yyyyMMdd-HHmm") .
+docker push 123.212.43.8:41000/queue/queue-portal:latest
+docker push 123.212.43.8:41000/queue/queue-portal:$(Get-Date -Format "yyyyMMdd-HHmm")
+
+# ===========================================
+# 4. 모든 이미지 확인
+# ===========================================
+docker images | findstr "123.212.43.8:41000/queue"
+
+# ===========================================
+# 5. 한 번에 실행하는 PowerShell 스크립트
+# ===========================================
+# 위의 명령어들을 순차적으로 실행하려면:
+# 1. PowerShell에서 이 파일을 실행하거나
+# 2. 각 프로젝트 폴더의 docker-build-push-commands.txt 파일을 참조하세요
+
+# ===========================================
+# 6. 개별 프로젝트 명령어 파일 위치
+# ===========================================
+# - queue-backend\java\docker-build-push-commands.txt
+# - queue-login\docker-build-push-commands.txt  
+# - queue-portal\temp-project\docker-build-push-commands.txt
