@@ -355,7 +355,7 @@ REDIS_MAX_WAIT: 3000
 ```
 
 ### 6. MQTT Broker (실시간 통신)
-- **포트**: 1883 (비보호), 8883 (보호)
+- **포트**: 1883 (비보호), 9001 (WebSocket)
 - **역할**: 실시간 메시지 브로커
 - **주요 용도**:
   - 큐 상태 실시간 전송
@@ -363,11 +363,36 @@ REDIS_MAX_WAIT: 3000
   - 큐 취소 알림
   - 멀티 클라이언트 메시지 전송
 
+#### MQTT 연결 방법
+
+**1. 로컬 개발 환경**
+```yaml
+# Spring Boot 애플리케이션 (queue-backend)
+MQTT_BROKER_URL: tcp://172.30.0.228:31884
+MQTT_CLIENT_ID: queue-backend-local
+```
+
+**2. 운영 서버 (Kubernetes 클러스터 내부)**
+```yaml
+# Spring Boot 애플리케이션 (queue-backend)
+MQTT_BROKER_URL: tcp://mosquitto.queue.svc.cluster.local:1884
+MQTT_CLIENT_ID: queue-backend-docker
+```
+
+**3. 포털에서 접근 (외부 클라이언트)**
+```yaml
+# React 애플리케이션 (queue-portal)
+MQTT_BROKER_URL: wss://123.212.43.8:41001/mqtt
+MQTT_CLIENT_ID: queue-portal-client
+```
+
 #### 환경 변수
 ```yaml
 # MQTT 설정
 MQTT_BROKER_URL: tcp://mqtt:1883
 MQTT_BROKER_URL_SECURE: tcp://mqtt:8883
+MQTT_BROKER_URL_WEBSOCKET: ws://mqtt:9001
+MQTT_BROKER_URL_WEBSOCKET_SECURE: wss://mqtt:9001
 MQTT_CLIENT_ID: queue-backend
 MQTT_USERNAME: queue-user
 MQTT_PASSWORD: queue-pass
@@ -416,6 +441,7 @@ FLYWAY_VALIDATE_ON_MIGRATE: true
 | **Nginx** | 80 | HTTP | 웹 서버 (비보호) | `http://domain.com` |
 | **Nginx** | 443 | HTTPS | 웹 서버 (보호) | `https://domain.com` |
 | **Nginx** | 8080 | HTTP | 직접 접근 | `http://domain.com:8080` |
+| **Nginx** | 41001 | WSS | MQTT WebSocket 프록시 | `wss://domain.com:41001/mqtt` |
 | **queue-portal** | 8080 | HTTP | 프론트엔드 (내부) | Nginx를 통해서만 |
 | **queue-login** | 21102 | HTTP | 인증 API (주) | Nginx를 통해서만 |
 | **queue-login** | 21103 | HTTP | 인증 API (보조) | Nginx를 통해서만 |
@@ -425,6 +451,8 @@ FLYWAY_VALIDATE_ON_MIGRATE: true
 | **MariaDB** | 3306 | TCP | 데이터베이스 | 내부 네트워크만 |
 | **MQTT** | 1883 | TCP | 실시간 통신 (비보호) | 내부 네트워크만 |
 | **MQTT** | 8883 | TCP | 실시간 통신 (보호) | 내부 네트워크만 |
+| **MQTT** | 9001 | WS | WebSocket 실시간 통신 | 내부 네트워크만 |
+| **MQTT** | 31884 | TCP | NodePort (외부 접근) | `tcp://172.30.0.228:31884` |
 
 ### 접근 방법별 설명
 
@@ -432,6 +460,7 @@ FLYWAY_VALIDATE_ON_MIGRATE: true
 - **HTTP**: `http://domain.com` (포트 80)
 - **HTTPS**: `https://domain.com` (포트 443)
 - **Direct**: `http://domain.com:8080` (포트 8080)
+- **MQTT WebSocket**: `wss://domain.com:41001/mqtt` (포트 41001)
 
 #### 2. 내부 접근 (서비스 간)
 - **queue-portal**: `http://queue-portal:8080`
@@ -440,6 +469,12 @@ FLYWAY_VALIDATE_ON_MIGRATE: true
 - **Redis**: `redis://redis:6379`
 - **MariaDB**: `jdbc:mysql://mariadb:3306`
 - **MQTT**: `mqtt://mqtt:1883` 또는 `mqtts://mqtt:8883`
+- **MQTT WebSocket**: `ws://mqtt:9001`
+
+#### 3. MQTT 연결 방법별 정리
+- **로컬 개발**: `tcp://172.30.0.228:31884` (NodePort)
+- **운영 서버**: `tcp://mosquitto.queue.svc.cluster.local:1884` (클러스터 내부)
+- **포털 접근**: `wss://123.212.43.8:41001/mqtt` (nginx 프록시)
 
 ## 환경 변수 요약
 

@@ -161,57 +161,58 @@ sequenceDiagram
                 LOGIN->>BACKEND: POST /api/queue/join
                 Note over LOGIN,BACKEND: {userId, clientId, priority, queueType: "portal"}
             
-            BACKEND->>REDIS: 대기열 조회
-            Note over BACKEND: 기존 대기열 상태 조회
-            Note over REDIS: HGET user:{userId} status, clientId, ticketId
-            REDIS-->>BACKEND: 대기열내 존재여부 반환 
+                BACKEND->>REDIS: 대기열 조회
+                Note over BACKEND: 기존 대기열 상태 조회
+                Note over REDIS: HGET user:{userId} status, clientId, ticketId
+                REDIS-->>BACKEND: 대기열내 존재여부 반환 
             
-            alt 🟢 시나리오 1: 큐에 없는 경우
-            BACKEND->>REDIS: 신규 큐 입장
-            Note over REDIS: ZADD queue:portal {priority * 1000000000 + timestamp} {userId}
-            Note over REDIS: VIP=1, PREMIUM=2, NORMAL=3 (낮을수록 높은 우선순위)
-            Note over REDIS: HSET user:{userId} status "PENDING", clientId {clientId}
-            REDIS-->>BACKEND: 큐 입장 완료
-            BACKEND-->>LOGIN: 200 OK + {tid, clientId, queueType: "portal"}
-            LOGIN-->>NGINX: 200 OK + {tid, clientId, queueType: "portal"}
-            NGINX-->>C: 200 OK + {tid, clientId, queueType: "portal"}
+                alt 🟢 시나리오 1: 큐에 없는 경우
+                    BACKEND->>REDIS: 신규 큐 입장
+                    Note over REDIS: ZADD queue:portal {priority * 1000000000 + timestamp} {userId}
+                    Note over REDIS: VIP=1, PREMIUM=2, NORMAL=3 (낮을수록 높은 우선순위)
+                    Note over REDIS: HSET user:{userId} status "PENDING", clientId {clientId}
+                    REDIS-->>BACKEND: 큐 입장 완료
+                    BACKEND-->>LOGIN: 200 OK + {tid, clientId, queueType: "portal"}
+                    LOGIN-->>NGINX: 200 OK + {tid, clientId, queueType: "portal"}
+                    NGINX-->>C: 200 OK + {tid, clientId, queueType: "portal"}
+                    
+                else 🟡 시나리오 3: 같은 클라이언트 재접속
+                    Note over BACKEND: 새 clientId == 기존 clientId
+                    BACKEND->>REDIS: 기존 큐 위치 유지
+                    Note over REDIS: HSET user:{userId} clientId {clientId}, lastSeen {timestamp}
+                    REDIS-->>BACKEND: 업데이트 완료
+                    BACKEND-->>LOGIN: 200 OK + {기존 tid, clientId, queueType: "portal"}
+                    LOGIN-->>NGINX: 200 OK + {기존 tid, clientId, queueType: "portal"}
+                    NGINX-->>C: 200 OK + {기존 tid, clientId, queueType: "portal"}
+                
+                else 🟠 시나리오 4: 만료 (10분 초과)
+                    Note over BACKEND: 기존 세션 만료됨
+                    BACKEND->>REDIS: 신규 큐 입장
+                    Note over REDIS: ZADD queue:portal {priority * 1000000000 + timestamp} {userId}
+                    Note over REDIS: VIP=1, PREMIUM=2, NORMAL=3 (낮을수록 높은 우선순위)
+                    Note over REDIS: HSET user:{userId} status "PENDING", clientId {clientId}
+                    REDIS-->>BACKEND: 큐 입장 완료
+                    BACKEND-->>LOGIN: 200 OK + {기존 tid, clientId, queueType: "portal"}
+                    LOGIN-->>NGINX: 200 OK + {tid, clientId, queueType: "portal"}
+                    NGINX-->>C: 200 OK + {tid, clientId, queueType: "portal"}
             
-            else 🟡 시나리오 3: 같은 클라이언트 재접속
-            Note over BACKEND: 새 clientId == 기존 clientId
-            BACKEND->>REDIS: 기존 큐 위치 유지
-            Note over REDIS: HSET user:{userId} clientId {clientId}, lastSeen {timestamp}
-            REDIS-->>BACKEND: 업데이트 완료
-            BACKEND-->>LOGIN: 200 OK + {기존 tid, clientId, queueType: "portal"}
-            LOGIN-->>NGINX: 200 OK + {기존 tid, clientId, queueType: "portal"}
-            NGINX-->>C: 200 OK + {기존 tid, clientId, queueType: "portal"}
-            
-            else 🟠 시나리오 4: 만료 (10분 초과)
-            Note over BACKEND: 기존 세션 만료됨
-            BACKEND->>REDIS: 신규 큐 입장
-            Note over REDIS: ZADD queue:portal {priority * 1000000000 + timestamp} {userId}
-            Note over REDIS: VIP=1, PREMIUM=2, NORMAL=3 (낮을수록 높은 우선순위)
-            Note over REDIS: HSET user:{userId} status "PENDING", clientId {clientId}
-            REDIS-->>BACKEND: 큐 입장 완료
-            BACKEND-->>LOGIN: 200 OK + {기존 tid, clientId, queueType: "portal"}
-            LOGIN-->>NGINX: 200 OK + {tid, clientId, queueType: "portal"}
-            NGINX-->>C: 200 OK + {tid, clientId, queueType: "portal"}
-            
-            else 🔵 시나리오 5: 다른 클라이언트 접속 (기존 클라이언트 튕김)
-            Note over BACKEND: 새 clientId != 기존 clientId
-            
-            BACKEND->>MQTT: MQTT 메시지 발행
-            Note over MQTT: Topic: queue/portal/{userId}/cancelled
-            Note over MQTT: Payload: {clientId: "client_old123", event: "QUEUE_CANCELLED", reason: "다른 클라이언트에서 로그인"}
-            MQTT-->>C: QUEUE_CANCELLED 메시지 수신 (기존 클라이언트)
-            Note over C: {event: "QUEUE_CANCELLED", reason: "다른 클라이언트에서 로그인"}
-                        
-            BACKEND->>REDIS: 기존 티켓 ID 유지, 새 clientId로 업데이트
-            Note over REDIS: HSET ticket:tid_abc123 clientId {clientId}
-            Note over REDIS: HSET user:{userId} clientId {clientId}, lastSeen {timestamp}
-            REDIS-->>BACKEND: 업데이트 완료
-            BACKEND-->>LOGIN: 200 OK + {기존 tid, clientId, queueType: "portal"}
-            LOGIN-->>NGINX: 200 OK + {기존 tid, clientId, queueType: "portal"}
-            NGINX-->>C: 200 OK + {기존 tid, clientId, queueType: "portal"}
+                else 🔵 시나리오 5: 다른 클라이언트 접속 (기존 클라이언트 튕김)
+                    Note over BACKEND: 새 clientId != 기존 clientId
+                    
+                    BACKEND->>MQTT: MQTT 메시지 발행
+                    Note over MQTT: Topic: queue/portal/{userId}/cancelled
+                    Note over MQTT: Payload: {clientId: "client_old123", event: "QUEUE_CANCELLED", reason: "다른 클라이언트에서 로그인"}
+                    MQTT-->>C: QUEUE_CANCELLED 메시지 수신 (기존 클라이언트)
+                    Note over C: {event: "QUEUE_CANCELLED", reason: "다른 클라이언트에서 로그인"}
+                                
+                    BACKEND->>REDIS: 기존 티켓 ID 유지, 새 clientId로 업데이트
+                    Note over REDIS: HSET ticket:tid_abc123 clientId {clientId}
+                    Note over REDIS: HSET user:{userId} clientId {clientId}, lastSeen {timestamp}
+                    REDIS-->>BACKEND: 업데이트 완료
+                    BACKEND-->>LOGIN: 200 OK + {기존 tid, clientId, queueType: "portal"}
+                    LOGIN-->>NGINX: 200 OK + {기존 tid, clientId, queueType: "portal"}
+                    NGINX-->>C: 200 OK + {기존 tid, clientId, queueType: "portal"}
+                end
             end
             
             Note over C: 큐 대기 시작

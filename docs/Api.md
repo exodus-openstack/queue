@@ -8,7 +8,7 @@ Queue 시스템의 API는 마이크로서비스별로 분리되어 있으며, �
 
 ### 🔐 인증 및 사용자 관리 (queue-login)
 **담당자**: 차장님  
-**문서 위치**: [queue-login/API.md](../queue-login/API.md)
+**문서 위치**: [queue-login/API.md](https://github.com/exodus-openstack/queue-login/blob/develop/API.md)
 
 - 사용자 회원가입/로그인/로그아웃
 - JWT 토큰 관리
@@ -17,7 +17,7 @@ Queue 시스템의 API는 마이크로서비스별로 분리되어 있으며, �
 
 ### 🎯 큐 시스템 관리 (queue-backend)
 **담당자**: 과장님  
-**문서 위치**: [queue-backend/API.md](../queue-backend/API.md)
+**문서 위치**: [queue-backend/API.md](https://github.com/exodus-openstack/queue-backend/blob/develop/API.md)
 
 - 로그인 큐 시스템
 - 게임 큐 시스템  
