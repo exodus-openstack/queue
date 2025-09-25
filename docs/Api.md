@@ -12,9 +12,41 @@ Queue 시스템의 API는 마이크로서비스별로 분리되어 있으며, �
 
 - 사용자 회원가입/로그인/로그아웃
 - **개별 필드 실시간 검증** (아이디, 사용자명, 이메일, 비밀번호)
+- **등급 코드 검증** (ADMIN, VIP, PREMIUM 등급 인증)
 - JWT 토큰 관리
 - 사용자 프로필 관리
 - 세션 관리
+
+#### 회원가입 API
+- **POST** `/api/auth/register` - 회원가입 (중복 검사 포함)
+- **POST** `/api/auth/validate-grade-code` - 등급 코드 검증
+
+**회원가입 요청 형식:**
+```json
+{
+  "id": "string",
+  "username": "string",
+  "email": "string", 
+  "password": "string",
+  "gradeCode": "string"
+}
+```
+
+**회원가입 응답 형식:**
+```json
+{
+  "success": true,
+  "message": "회원가입이 완료되었습니다",
+  "data": {
+    "userId": "string",
+    "username": "string",
+    "email": "string",
+    "role": "VIP",
+    "rateLimit": 200,
+    "createdAt": "2024-12-18T10:00:00Z"
+  }
+}
+```
 
 ### 🎯 큐 시스템 관리 (queue-backend)
 **담당자**: 과장님  
@@ -105,6 +137,18 @@ Queue 시스템의 API는 마이크로서비스별로 분리되어 있으며, �
 - `INVALID_SCORE`: 잘못된 점수
 - `MATCH_NOT_FOUND`: 매칭 없음
 - `TASK_NOT_FOUND`: 작업 없음
+
+### 회원가입 관련 에러 코드
+- `ID_EXISTS`: 아이디 중복
+- `INVALID_EMAIL_FORMAT`: 이메일 형식 오류
+- `WEAK_PASSWORD`: 비밀번호 강도 부족
+- `PASSWORD_MISMATCH`: 비밀번호 불일치
+- `INVALID_GRADE_CODE`: 잘못된 등급 코드
+- `EXPIRED_GRADE_CODE`: 만료된 등급 코드
+- `USED_GRADE_CODE`: 이미 사용된 등급 코드
+- `GRADE_CODE_NOT_FOUND`: 등급 코드를 찾을 수 없음
+- `GRADE_CODE_FORMAT_ERROR`: 등급 코드 형식 오류
+- `VALIDATION_ERROR`: 입력값 검증 실패
 
 ---
 

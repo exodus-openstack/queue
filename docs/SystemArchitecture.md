@@ -49,8 +49,8 @@ graph TB
     end
     
     subgraph "Service Layer"
-        LOGIN[queue-login<br/>Spring Boot 3.2.0 + Java 17<br/>:21102, :21103]
-        BACKEND[queue-backend<br/>Spring Boot 3.2.0 + Java 17<br/>:21101, :21102]
+        LOGIN[queue-login<br/>Spring Boot 3.2.0 + Java 17<br/>:8080, :9090]
+        BACKEND[queue-backend<br/>Spring Boot 3.2.0 + Java 17<br/>:9090, :8080]
     end
     
     subgraph "Data Layer"
@@ -83,7 +83,7 @@ graph TB
 
 ### 2. queue-login (인증 서비스)
 - **기술 스택**: Spring Boot 3.2.0 + Java 17
-- **포트**: 21102, 21103
+- **포트**: 8080, 9090
 - **역할**: 사용자 인증 및 권한 관리
 - **주요 기능**:
   - 사용자 회원가입/로그인
@@ -95,7 +95,7 @@ graph TB
 #### 환경 변수
 ```yaml
 # 서버 설정
-SERVER_PORT: 21102
+SERVER_PORT: 8080
 SERVER_SERVLET_CONTEXT_PATH: /api
 
 # 데이터베이스 설정
@@ -111,7 +111,7 @@ JWT_EXPIRATION: 900000
 JWT_REFRESH_EXPIRATION: 604800000
 
 # Queue Backend 연동
-QUEUE_BACKEND_URL: http://queue-backend:21101
+QUEUE_BACKEND_URL: http://queue-backend:9090
 
 # 로깅 설정
 LOGGING_LEVEL_COM_QUEUE_LOGIN: INFO
@@ -120,7 +120,7 @@ LOGGING_LEVEL_ROOT: WARN
 
 ### 3. queue-backend (큐 관리 서비스)
 - **기술 스택**: Spring Boot 3.2.0 + Java 17
-- **포트**: 21101, 21102
+- **포트**: 9090, 8080
 - **역할**: 큐 관리 및 실시간 통신
 - **주요 기능**:
   - Redis 큐 상태 관리
@@ -134,7 +134,7 @@ LOGGING_LEVEL_ROOT: WARN
 #### 환경 변수
 ```yaml
 # 서버 설정
-SERVER_PORT: 21101
+SERVER_PORT: 9090
 
 # Redis 설정
 REDIS_HOST: redis
@@ -183,25 +183,25 @@ server {
     listen 80;
     server_name _;
     
-    # 인증 관련 API → queue-login (포트 21102)
+    # 인증 관련 API → queue-login (포트 8080)
     location /auth/ {
-        proxy_pass http://queue-login:21102;
+        proxy_pass http://queue-login:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
     
-    # 큐 관련 API → queue-backend (포트 21101)
+    # 큐 관련 API → queue-backend (포트 9090)
     location /api/queue/ {
-        proxy_pass http://queue-backend:21101;
+        proxy_pass http://queue-backend:9090;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
     
-    # 헬스 체크 API → queue-backend (포트 21101)
+    # 헬스 체크 API → queue-backend (포트 9090)
     location /api/health/ {
-        proxy_pass http://queue-backend:21101;
+        proxy_pass http://queue-backend:9090;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -227,27 +227,27 @@ server {
     ssl_certificate /etc/ssl/certs/nginx.crt;
     ssl_certificate_key /etc/ssl/private/nginx.key;
     
-    # 인증 관련 API → queue-login (포트 21102)
+    # 인증 관련 API → queue-login (포트 8080)
     location /auth/ {
-        proxy_pass http://queue-login:21102;
+        proxy_pass http://queue-login:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
     
-    # 큐 관련 API → queue-backend (포트 21101)
+    # 큐 관련 API → queue-backend (포트 9090)
     location /api/queue/ {
-        proxy_pass http://queue-backend:21101;
+        proxy_pass http://queue-backend:9090;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
     
-    # 헬스 체크 API → queue-backend (포트 21101)
+    # 헬스 체크 API → queue-backend (포트 9090)
     location /api/health/ {
-        proxy_pass http://queue-backend:21101;
+        proxy_pass http://queue-backend:9090;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -271,25 +271,25 @@ server {
     listen 8080;
     server_name _;
     
-    # 인증 관련 API → queue-login (포트 21102)
+    # 인증 관련 API → queue-login (포트 8080)
     location /auth/ {
-        proxy_pass http://queue-login:21102;
+        proxy_pass http://queue-login:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
     
-    # 큐 관련 API → queue-backend (포트 21101)
+    # 큐 관련 API → queue-backend (포트 9090)
     location /api/queue/ {
-        proxy_pass http://queue-backend:21101;
+        proxy_pass http://queue-backend:9090;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
     
-    # 헬스 체크 API → queue-backend (포트 21101)
+    # 헬스 체크 API → queue-backend (포트 9090)
     location /api/health/ {
-        proxy_pass http://queue-backend:21101;
+        proxy_pass http://queue-backend:9090;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -307,7 +307,7 @@ server {
 
 #### API 엔드포인트 분류
 
-**queue-login (포트 21102, 21103)**
+**queue-login (포트 8080, 9090)**
 - `POST /auth/check-duplicates` - 중복 체크
 - `POST /auth/register` - 회원가입
 - `POST /auth/login` - 로그인
@@ -318,7 +318,7 @@ server {
 - `POST /auth/check-session` - 기존 세션 체크
 - `GET /health` - 헬스 체크
 
-**queue-backend (포트 21101, 21102)**
+**queue-backend (포트 9090, 8080)**
 - `POST /api/queue/join` - 큐 입장
 - `POST /api/queue/leave` - 큐 퇴장
 - `GET /api/queue/position` - 큐 위치 조회
@@ -443,10 +443,10 @@ FLYWAY_VALIDATE_ON_MIGRATE: true
 | **Nginx** | 8080 | HTTP | 직접 접근 | `http://domain.com:8080` |
 | **Nginx** | 41001 | WSS | MQTT WebSocket 프록시 | `wss://domain.com:41001/mqtt` |
 | **queue-portal** | 8080 | HTTP | 프론트엔드 (내부) | Nginx를 통해서만 |
-| **queue-login** | 21102 | HTTP | 인증 API (주) | Nginx를 통해서만 |
-| **queue-login** | 21103 | HTTP | 인증 API (보조) | Nginx를 통해서만 |
-| **queue-backend** | 21101 | HTTP | 큐 관리 API (주) | Nginx를 통해서만 |
-| **queue-backend** | 21102 | HTTP | 큐 관리 API (보조) | Nginx를 통해서만 |
+| **queue-login** | 8080 | HTTP | 인증 API (주) | Nginx를 통해서만 |
+| **queue-login** | 9090 | HTTP | 인증 API (보조) | Nginx를 통해서만 |
+| **queue-backend** | 9090 | HTTP | 큐 관리 API (주) | Nginx를 통해서만 |
+| **queue-backend** | 8080 | HTTP | 큐 관리 API (보조) | Nginx를 통해서만 |
 | **Redis** | 6379 | TCP | 캐시 및 큐 관리 | 내부 네트워크만 |
 | **MariaDB** | 3306 | TCP | 데이터베이스 | 내부 네트워크만 |
 | **MQTT** | 1883 | TCP | 실시간 통신 (비보호) | 내부 네트워크만 |
@@ -464,8 +464,8 @@ FLYWAY_VALIDATE_ON_MIGRATE: true
 
 #### 2. 내부 접근 (서비스 간)
 - **queue-portal**: `http://queue-portal:8080`
-- **queue-login**: `http://queue-login:21102`
-- **queue-backend**: `http://queue-backend:21101`
+- **queue-login**: `http://queue-login:8080`
+- **queue-backend**: `http://queue-backend:9090`
 - **Redis**: `redis://redis:6379`
 - **MariaDB**: `jdbc:mysql://mariadb:3306`
 - **MQTT**: `mqtt://mqtt:1883` 또는 `mqtts://mqtt:8883`
@@ -507,14 +507,14 @@ MQTT_PASSWORD: queue-pass
 
 #### queue-login
 ```yaml
-SERVER_PORT: 21102
+SERVER_PORT: 8080
 SERVER_SERVLET_CONTEXT_PATH: /api
-QUEUE_BACKEND_URL: http://queue-backend:21101
+QUEUE_BACKEND_URL: http://queue-backend:9090
 ```
 
 #### queue-backend
 ```yaml
-SERVER_PORT: 21101
+SERVER_PORT: 9090
 QUEUE_MAX_CAPACITY: 500000
 QUEUE_PROCESSING_RATE: 1000
 QUEUE_TYPES: login,game,portal
