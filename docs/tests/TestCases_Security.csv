@@ -1,0 +1,12 @@
+ID,Title,Preconditions,Steps,Input,Expected,Priority,Type
+SEC-001,만료 Access Token 접근,,보호 API 호출,expired accessToken,401 Unauthorized,High,Auth
+SEC-002,위조 토큰(서명 불일치),,보호 API 호출,fake token,401 Unauthorized,High,Auth
+SEC-003,Refresh 재사용 공격,,/auth/refresh 반복 호출,stolen refresh,401 및 토큰 폐기,High,Auth
+SEC-101,ADMIN 전용 접근 차단,,ADMIN-only API 호출,normal user,403 Forbidden,High,RBAC
+SEC-102,VIP 우선순위 우회 방지,,큐 조작 시도,normal user,우선순위 미상승,Medium,RBAC
+SEC-201,일반 사용자 100rps 초과,,burst 호출,normal user,429 Too Many Requests,High,RateLimit
+SEC-202,VIP 200rps 초과,,burst 호출,VIP user,429 Too Many Requests,High,RateLimit
+SEC-301,입력검증(이메일/비밀번호),,회원가입 invalid 입력,invalid fields,VALIDATION_ERROR,Medium,Validation
+SEC-401,HTTPS 강제 확인,,443 미사용 시 정책 확인,-,보안 정책 충족,Low,Config
+SEC-501,MQTT 권한 없는 토픽 구독/발행,,부적절 토픽 접근,-,접근 차단,High,MQTT
+SEC-502,MQTT 끊김/재연결 안전성,,연결 강제 종료 후 재구독,-,세션/이벤트 이탈 없음,Medium,MQTT
