@@ -1,6 +1,6 @@
-ID,Title,Preconditions,Steps,Input,Expected,Priority,Type
-PERF-001,지속 부하 100VU 30m,API_TEST_GUIDE 실행 가능,"k6 run --vus 100 --duration 30m",queue-login-dev-test-grade.js,p95<=2s error<1% 안정동작,High,Load
-PERF-002,단계 부하 10→50→100VU,,"k6 run --stage 30s:10,1m:50,2m:100,30s:0",queue-login-dev-test-grade.js,성능 열화/회복 관찰,High,Stress
-PERF-003,혼합 트래픽 비율,"VIP5/PREMIUM15/NORMAL80","환경 변수로 분포 설정",env,우선순위 처리율 기대치 충족,Medium,Mix
-PERF-004,회복 탄력성(지연 주입),,"부하 중 지연→정상화",-,오류율 급증 無, 지표 회복,Medium,Resilience
-PERF-005,리소스 모니터링 수집,,"시스템 메트릭 수집",-,CPU/메모리 안정, 누수 無,Medium,Observation
+ID	Title	Preconditions	Steps	Input	Expected	Priority	Type
+PERF-001	지속 부하 100VU 30m	API_TEST_GUIDE 실행 가능	k6 run --vus 100 --duration 30m	queue-login-dev-test-grade.js	p95 ≤ 2s, error < 1%, 안정동작	High	Load
+PERF-002	단계 부하 10→50→100VU		k6 run --stage 30s:10,1m:50,2m:100,30s:0	queue-login-dev-test-grade.js	성능 열화/회복 관찰	High	Stress
+PERF-003	혼합 트래픽 비율	VIP5/PREMIUM15/NORMAL80	환경 변수로 분포 설정	env	우선순위 처리율 기대치 충족	Medium	Mix
+PERF-004	회복 탄력성(지연 주입)		부하 중 지연→정상화	-	오류율 급증 無, 지표 회복	Medium	Resilience
+PERF-005	리소스 모니터링 수집		시스템 메트릭 수집	-	CPU/메모리 안정, 누수 無	Medium	Observation
