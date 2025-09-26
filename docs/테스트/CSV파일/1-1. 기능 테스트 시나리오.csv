@@ -1,27 +1,27 @@
 ID,Title,Preconditions,Steps,Input,Expected,Priority,Type
-TC-F-001,회원가입 중복체크 성공,"id/username/email 미사용","POST /auth/check-duplicates","{id, username, email}",200 success=true message="모든 필드가 사용 가능합니다",High,Positive
-TC-F-002,아이디 중복,"동일 id 존재","POST /auth/check-duplicates","{id, username, email}",400 success=false message contains "아이디",High,Negative
-TC-F-003,사용자명 중복,"동일 username 존재","POST /auth/check-duplicates","{id, username, email}",400 success=false message contains "사용자명",Medium,Negative
-TC-F-004,이메일 중복,"동일 email 존재","POST /auth/check-duplicates","{id, username, email}",400 success=false message contains "이메일",Medium,Negative
-TC-F-005,이메일 형식 오류,,"POST /auth/check-duplicates","{id, username, email: invalid}",400 error="INVALID_EMAIL_FORMAT" or VALIDATION_ERROR,Medium,Negative
-TC-F-006,회원가입 성공,"유효 등급 코드 보유","POST /auth/register","{id, username, password(강함), email, gradeCode}",201 success=true data.userId exists,High,Positive
-TC-F-007,약한 비밀번호 거절,,"POST /auth/register","{..., password: weak}",400 error="WEAK_PASSWORD",High,Negative
-TC-F-008,등급 코드 무효/만료/사용됨,,"POST /auth/register","{..., gradeCode: invalid/expired/used}",400 error in [INVALID_GRADE_CODE,EXPIRED_GRADE_CODE,USED_GRADE_CODE],High,Negative
-TC-F-101,로그인 성공,,"POST /auth/login","{id,password}",200 success=true OR 200 with tid/clientId for queue,High,Positive
-TC-F-102,로그인 실패(잘못된 비밀번호),,"POST /auth/login","{id,password:wrong}",400 success=false message="인증 실패",High,Negative
-TC-F-103,토큰 갱신 성공,,"POST /auth/refresh","{refreshToken}",200 accessToken/refreshToken 재발급,High,Positive
-TC-F-104,토큰 갱신 만료,,"POST /auth/refresh","{refreshToken:expired}",401 message="토큰이 만료되었습니다",High,Negative
-TC-F-105,로그아웃,,"POST /auth/logout","{accessToken}",200 success=true and Redis 세션 삭제,High,Positive
-TC-F-201,ADMIN 직행,"role=ADMIN","POST /auth/login","{id,password}",200 즉시 토큰 발급,High,Positive
-TC-F-202,우선순위 정렬 확인,"혼합 사용자","POST /api/queue/join","{userId, priority, queueType:portal}",Redis ZADD score=priority*1e9+timestamp 정렬,High,Positive
-TC-F-203,기존 세션 유지,"hasExistingSession=true","POST /auth/login","{id,password}",200 즉시 토큰 발급,High,Positive
-TC-F-204,만료 후 재접속,"lastSeen>10분","POST /auth/login","{id,password}",신규 큐 등록 status=PENDING,Medium,Positive
-TC-F-205,같은 클라이언트 재접속,,"POST /auth/login","{id,password}",기존 위치 유지 clientId 동일,Medium,Positive
-TC-F-206,다른 클라이언트 접속 튕김,,"POST /auth/login (새 clientId)","{id,password}",MQTT cancelled 발행 기존 클라이언트 취소,High,Positive
-TC-F-207,READY 전환 및 finalize,,"수신 대기→POST /auth/finalize","{tid,clientId}",200 토큰 발급 및 큐 제거,High,Positive
-TC-F-301,SSE 폴링 주기 준수,,"관찰","-",변경 시에만 이벤트 전송(5~30초),Low,Non-Functional
-TC-F-302,MQTT payload 스키마,,"구독","-",{position,estimatedWaitSec,totalWaiting} 필드 확인,Medium,Non-Functional
-TC-F-401,일반 사용자 Rate Limit 초과,,"burst 요청","-",429 Too Many Requests,High,Negative
-TC-F-402,공통 에러 포맷,,"에러 유발","-",{success:false,message,error|errors[],timestamp},Medium,Negative
-TC-F-501,Redis 키 정합성,,"흐름 실행 후 검사","-",user:{userId},ticket:{tid},queue:{queueType} 일치,Medium,Data
-TC-F-502,MariaDB 사용자 스키마,,"회원가입 후 조회","-",필드 저장값 일치,Medium,Data
+TC-F-001,회원가입 중복체크 성공,"id/username/email 미사용","POST /auth/check-duplicates","{id, username, email}","200 success=true message=""모든 필드가 사용 가능합니다""",High,Positive
+TC-F-002,아이디 중복,"동일 id 존재","POST /auth/check-duplicates","{id, username, email}","400 success=false message contains ""아이디""",High,Negative
+TC-F-003,사용자명 중복,"동일 username 존재","POST /auth/check-duplicates","{id, username, email}","400 success=false message contains ""사용자명""",Medium,Negative
+TC-F-004,이메일 중복,"동일 email 존재","POST /auth/check-duplicates","{id, username, email}","400 success=false message contains ""이메일""",Medium,Negative
+TC-F-005,이메일 형식 오류,,"POST /auth/check-duplicates","{id, username, email: invalid}","400 error=""INVALID_EMAIL_FORMAT"" or VALIDATION_ERROR",Medium,Negative
+TC-F-006,회원가입 성공,"유효 등급 코드 보유","POST /auth/register","{id, username, password(강함), email, gradeCode}","201 success=true data.userId exists",High,Positive
+TC-F-007,약한 비밀번호 거절,,"POST /auth/register","{..., password: weak}","400 error=""WEAK_PASSWORD""",High,Negative
+TC-F-008,등급 코드 무효/만료/사용됨,,"POST /auth/register","{..., gradeCode: invalid/expired/used}","400 error in [INVALID_GRADE_CODE,EXPIRED_GRADE_CODE,USED_GRADE_CODE]",High,Negative
+TC-F-101,로그인 성공,,"POST /auth/login","{id,password}","200 success=true OR 200 with tid/clientId for queue",High,Positive
+TC-F-102,로그인 실패(잘못된 비밀번호),,"POST /auth/login","{id,password:wrong}","400 success=false message=""인증 실패""",High,Negative
+TC-F-103,토큰 갱신 성공,,"POST /auth/refresh","{refreshToken}","200 accessToken/refreshToken 재발급",High,Positive
+TC-F-104,토큰 갱신 만료,,"POST /auth/refresh","{refreshToken:expired}","401 message=""토큰이 만료되었습니다""",High,Negative
+TC-F-105,로그아웃,,"POST /auth/logout","{accessToken}","200 success=true and Redis 세션 삭제",High,Positive
+TC-F-201,ADMIN 직행,"role=ADMIN","POST /auth/login","{id,password}","200 즉시 토큰 발급",High,Positive
+TC-F-202,우선순위 정렬 확인,"혼합 사용자","POST /api/queue/join","{userId, priority, queueType:portal}","Redis ZADD score=priority*1e9+timestamp 정렬",High,Positive
+TC-F-203,기존 세션 유지,"hasExistingSession=true","POST /auth/login","{id,password}","200 즉시 토큰 발급",High,Positive
+TC-F-204,만료 후 재접속,"lastSeen>10분","POST /auth/login","{id,password}","신규 큐 등록 status=PENDING",Medium,Positive
+TC-F-205,같은 클라이언트 재접속,,"POST /auth/login","{id,password}","기존 위치 유지 clientId 동일",Medium,Positive
+TC-F-206,다른 클라이언트 접속 튕김,,"POST /auth/login (새 clientId)","{id,password}","MQTT cancelled 발행 기존 클라이언트 취소",High,Positive
+TC-F-207,READY 전환 및 finalize,,"수신 대기→POST /auth/finalize","{tid,clientId}","200 토큰 발급 및 큐 제거",High,Positive
+TC-F-301,SSE 폴링 주기 준수,,"관찰","-","변경 시에만 이벤트 전송(5~30초)",Low,Non-Functional
+TC-F-302,MQTT payload 스키마,,"구독","-","{position,estimatedWaitSec,totalWaiting} 필드 확인",Medium,Non-Functional
+TC-F-401,일반 사용자 Rate Limit 초과,,"burst 요청","-","429 Too Many Requests",High,Negative
+TC-F-402,공통 에러 포맷,,"에러 유발","-","{success:false,message,error|errors[],timestamp}",Medium,Negative
+TC-F-501,Redis 키 정합성,,"흐름 실행 후 검사","-","user:{userId},ticket:{tid},queue:{queueType} 일치",Medium,Data
+TC-F-502,MariaDB 사용자 스키마,,"회원가입 후 조회","-","필드 저장값 일치",Medium,Data
